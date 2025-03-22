@@ -1,67 +1,72 @@
-import pytesseract
+import google.generativeai as genai
 from PIL import Image
-import cv2
-import numpy as np
+import os
 
-def preprocess_image(image_path):
-    # Read image using opencv
-    img = cv2.imread(image_path)
-    
-    # Convert to grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Apply adaptive thresholding
-    thresh = cv2.adaptiveThreshold(
-        gray, 
-        255, 
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-        cv2.THRESH_BINARY, 
-        11, # Block size
-        2  # C constant
-    )
-    
-    # Denoise the image
-    denoised = cv2.fastNlMeansDenoising(thresh)
-    
-    # Increase image size to improve OCR
-    scale_factor = 2
-    enlarged = cv2.resize(denoised, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_CUBIC)
-    
-    # Save preprocessed image
-    cv2.imwrite("preprocessed_image.png", enlarged)
-    
-    return Image.open("preprocessed_image.png")
+# Configure Gemini API
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+genai.configure(api_key=GOOGLE_API_KEY)
 
 def extract_text_and_numbers(image_path):
     try:
-        # Preprocess the image
-        processed_image = preprocess_image(image_path)
+        # Load the image
+        image = Image.open(image_path)
         
-        # Configure Tesseract parameters
-        custom_config = r'--oem 3 --psm 6'
+        # Resize the image to a smaller size (e.g., 800x800)
+        image.thumbnail((800, 800))  # Maintain aspect ratio
         
-        # Extract text using Tesseract with Vietnamese language
-        text = pytesseract.image_to_string(
-            processed_image, 
-            lang='vie',
-            config=custom_config
-        )
+        # Initialize Gemini Pro Vision model
+        model = genai.GenerativeModel('gemini-2.0-flash-lite')
         
-        print("Raw extracted text:")
-        print(text)
+        # Prepare the prompt
+        prompt = """Please analyze this financial report image and extract only the data from the first table.
+        Return the extracted data with the following format:
+        column name, value name
         
-        return text
+        The table contains the following columns:
+        - Ngày
+        - Giá CCQ
+        - Return so với tuần trước
+        - Return từ đầu năm
+        - SL CCQ sở hữu
+        - Giá trị tài sản hiện tại
+        - Tỷ lệ lãi lỗ trên vốn
+        
+        Please ensure the output is structured clearly with each column name followed by its corresponding value.
+        Please return the output in a csv file and return only the data and nothing else."""
+        
+        # Generate response
+        response = model.generate_content([prompt, image])
+        
+        # Clean the response to remove leading and trailing markdown
+        cleaned_response = response.text.strip().replace("```csv\n", "").replace("```", "").strip()
+        
+        return cleaned_response  # Return the cleaned response
         
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
+        print(f"An error occurred while processing {image_path}: {str(e)}")
         return None
 
 def main():
-    # Specify your image path
-    image_path = 'downloaded_images/image_20230212.jpg'
+    # Specify the folder containing images
+    folder_path = 'downloaded_images'
     
-    # Extract text
-    result = extract_text_and_numbers(image_path)
+    # List to hold all extracted information
+    all_extracted_info = []
+
+    # Loop over every image in the folder
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.jpg'):  # Check for image file extensions
+            image_path = os.path.join(folder_path, filename)
+            # Extract text using Gemini
+            extracted_info = extract_text_and_numbers(image_path)
+
+            # Append the extracted information to the list
+            if extracted_info:
+                all_extracted_info.append(f"{extracted_info}\n")  # Add a newline for CSV formatting
+
+    # Save all extracted text to a single CSV file
+    with open('extracted_text.csv', 'w', encoding='utf-8') as file:
+        file.writelines(all_extracted_info)  # Write all extracted information at once
 
 if __name__ == "__main__":
     main()
