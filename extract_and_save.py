@@ -19,19 +19,15 @@ def extract_text_and_numbers(image_path):
         
         # Prepare the prompt
         prompt = """Please analyze this financial report image and extract only the data from the first table.
-        Return the extracted data with the following format:
-        column name, value name
+        Return only the following columns in the output:
         
-        The table contains the following columns:
         - Ngày
         - Giá CCQ
-        - Return so với tuần trước
-        - Return từ đầu năm
         - SL CCQ sở hữu
         - Giá trị tài sản hiện tại
         - Tỷ lệ lãi lỗ trên vốn
         
-        Please ensure the output is structured clearly with each column name followed by its corresponding value.
+        Please ensure the output is structured clearly with each column name followed by its corresponding value, in this format: column_name| value
         Please return the output in a csv file and return only the data and nothing else."""
         
         # Generate response
