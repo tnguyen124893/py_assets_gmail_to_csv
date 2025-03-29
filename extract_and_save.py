@@ -2,7 +2,11 @@ import google.generativeai as genai
 from PIL import Image
 import os
 import time
+import logging
 from typing import List
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Configure Gemini API
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
@@ -45,7 +49,7 @@ def extract_text_and_numbers(image_path):
         return cleaned_response  # Return the cleaned response
         
     except Exception as e:
-        print(f"An error occurred while processing {image_path}: {str(e)}")
+        logging.error(f"An error occurred while processing {image_path}: {str(e)}")
         return None
 
 def process_image_batch(image_paths: List[str], batch_size: int = 5) -> List[str]:
@@ -53,7 +57,7 @@ def process_image_batch(image_paths: List[str], batch_size: int = 5) -> List[str
     batch_results = []
     
     for i, image_path in enumerate(image_paths):
-        print(f"Processing image {i+1}/{len(image_paths)}: {os.path.basename(image_path)}")
+        logging.info(f"Processing image {i+1}/{len(image_paths)}: {os.path.basename(image_path)}")
         extracted_info = extract_text_and_numbers(image_path)
         
         if extracted_info:
@@ -72,7 +76,7 @@ def main():
     # Get all image files
     image_files = [f for f in os.listdir(folder_path) if f.endswith('.jpg')]
     total_images = len(image_files)
-    print(f"Found {total_images} images to process")
+    logging.info(f"Found {total_images} images to process")
     
     # Process images in batches
     batch_size = 5
@@ -82,19 +86,19 @@ def main():
         batch_files = image_files[i:i + batch_size]
         batch_paths = [os.path.join(folder_path, f) for f in batch_files]
         
-        print(f"\nProcessing batch {i//batch_size + 1}/{(total_images + batch_size - 1)//batch_size}")
+        logging.info(f"\nProcessing batch {i//batch_size + 1}/{(total_images + batch_size - 1)//batch_size}")
         batch_results = process_image_batch(batch_paths, batch_size)
         all_extracted_info.extend(batch_results)
         
         # Add a longer delay between batches (5 seconds)
         if i + batch_size < total_images:
-            print("Waiting 5 seconds before next batch...")
+            logging.info("Waiting 5 seconds before next batch...")
             time.sleep(5)
     
     # Save all extracted text to a single TSV file
     with open('extracted_text.csv', 'w', encoding='utf-8') as file:
         file.writelines(all_extracted_info)
-    print("\nProcessing complete! Results saved to extracted_text.csv")
+    logging.info("\nProcessing complete! Results saved to extracted_text.csv")
 
 if __name__ == "__main__":
     main()
