@@ -34,10 +34,10 @@ def extract_text_and_numbers(image_path):
         - Tỷ lệ lãi lỗ trên vốn
         
         Please ensure the output is structured clearly with each column name in this format:
-            Ngày, Giá CCQ, SL CCQ sở hữu, Giá trị tài sản hiện tại, Tỷ lệ lãi lỗ trên vốn
+            Ngày| Giá CCQ| SL CCQ sở hữu| Giá trị tài sản hiện tại| Tỷ lệ lãi lỗ trên vốn
         For example:
-            Ngày, Giá CCQ, SL CCQ sở hữu, Giá trị tài sản hiện tại, Tỷ lệ lãi lỗ trên vốn
-            01/01/2022, 1000, 10, 10000, 5%
+            Ngày| Giá CCQ| SL CCQ sở hữu| Giá trị tài sản hiện tại| Tỷ lệ lãi lỗ trên vốn
+            01/01/2022| 1000| 10| 10000| 5%
         Please return the output in a csv file and return only the data and nothing else."""
         
         # Generate response
