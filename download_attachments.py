@@ -10,72 +10,102 @@ from datetime import datetime
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
+
+
+class GmailClient:
+    def __init__(self, scopes, token_path='token.json', creds_path='credentials.json'):
+        self.scopes = scopes
+        self.token_path = token_path
+        self.creds_path = creds_path
+        self.creds = self._get_gmail_credentials()
+        self.service = self._build_service()
+
+    def _get_gmail_credentials(self):
+        creds = None
+        if os.path.exists(self.token_path):
+            creds = Credentials.from_authorized_user_file(self.token_path, self.scopes)
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    self.creds_path, self.scopes)
+                creds = flow.run_local_server(port=0)
+            with open(self.token_path, 'w') as token:
+                token.write(creds.to_json())
+        return creds
+
+    def _build_service(self):
+        try:
+            service = build('gmail', 'v1', credentials=self.creds)
+            return service
+        except HttpError as error:
+            print(f'An error occurred: {error}')
+            return None
+
+    def get_messages(self, query):
+        try:
+            results = self.service.users().messages().list(userId='me', q=query).execute()
+            messages = results.get('messages', [])
+            if not messages:
+                print('No messages found.')
+            return messages
+        except HttpError as error:
+            print(f'An error occurred: {error}')
+            return []
+
+    def get_message(self, msg_id):
+        return self.service.users().messages().get(userId='me', id=msg_id).execute()
+
+    def get_attachment(self, msg_id, att_id):
+        return self.service.users().messages().attachments().get(userId='me', messageId=msg_id, id=att_id).execute()
+
+
+
+
+
 def main():
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+    gmail_client = GmailClient(SCOPES)
+    query = 'subject:"Báo cáo NAV quỹ VDF" from:hainh2304@gmail.com has:attachment'
+    messages = gmail_client.get_messages(query)
 
-    try:
-        service = build('gmail', 'v1', credentials=creds)
-        query = 'subject:"Báo cáo NAV quỹ VDF" from:hainh2304@gmail.com has:attachment'
-        results = service.users().messages().list(userId='me', q=query).execute()
-        messages = results.get('messages', [])
+    folder_path = 'downloaded_images'
+    if not os.path.exists(folder_path) and messages:
+        os.makedirs(folder_path)
 
-        if not messages:
-            print('No messages found.')
-            return
+    for message in messages:
+        msg = gmail_client.get_message(message['id'])
+        send_date = None
+        for header in msg['payload']['headers']:
+            if header['name'] == 'Date':
+                send_date = header['value']
+                break
+        if send_date:
+            send_date = datetime.strptime(send_date, '%a, %d %b %Y %H:%M:%S %z').strftime('%Y%m%d')
 
-        # Create a folder to store the downloaded images
-        folder_path = 'downloaded_images'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        for part in msg['payload']['parts']:
+            if part['filename']:
+                if 'data' in part['body']:
+                    data = part['body']['data']
+                else:
+                    att_id = part['body']['attachmentId']
+                    att = gmail_client.get_attachment(message['id'], att_id)
+                    data = att['data']
+                file_data = base64.urlsafe_b64decode(data.encode('UTF-8'))
 
-        for message in messages:
-            msg = service.users().messages().get(userId='me', id=message['id']).execute()
-            send_date = None
-            for header in msg['payload']['headers']:
-                if header['name'] == 'Date':
-                    send_date = header['value']
-                    break
-            if send_date:
-                send_date = datetime.strptime(send_date, '%a, %d %b %Y %H:%M:%S %z').strftime('%Y%m%d')
+                filename = f'image_{send_date}.jpg'
+                path = os.path.join(folder_path, filename)
 
-            for part in msg['payload']['parts']:
-                if part['filename']:
-                    if 'data' in part['body']:
-                        data = part['body']['data']
-                    else:
-                        att_id = part['body']['attachmentId']
-                        att = service.users().messages().attachments().get(userId='me', messageId=message['id'], id=att_id).execute()
-                        data = att['data']
-                    file_data = base64.urlsafe_b64decode(data.encode('UTF-8'))
-
-                    # Generate a unique filename based on the send date
-                    filename = f'image_{send_date}.jpg'
+                counter = 1
+                while os.path.exists(path):
+                    filename = f'image_{send_date}_{counter}.jpg'
                     path = os.path.join(folder_path, filename)
+                    counter += 1
 
-                    # Ensure the filename is unique by appending a counter if necessary
-                    counter = 1
-                    while os.path.exists(path):
-                        filename = f'image_{send_date}_{counter}.jpg'
-                        path = os.path.join(folder_path, filename)
-                        counter += 1
+                with open(path, 'wb') as f:
+                    f.write(file_data)
+                print(f'Attachment {path} downloaded.')
 
-                    with open(path, 'wb') as f:
-                        f.write(file_data)
-                    print(f'Attachment {path} downloaded.')
-
-    except HttpError as error:
-        print(f'An error occurred: {error}')
 
 if __name__ == '__main__':
     main()
