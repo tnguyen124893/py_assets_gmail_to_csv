@@ -1,0 +1,16 @@
+[project]
+name = "py-assets-gmail-to-csv"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "google-api-python-client>=2.178.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth-oauthlib>=1.2.2",
+    "google-generativeai>=0.8.5",
+    "numpy>=2.0.2",
+    "opencv-python>=4.11.0.86",
+    "pillow>=11.3.0",
+    "pytesseract>=0.3.13",
+]
