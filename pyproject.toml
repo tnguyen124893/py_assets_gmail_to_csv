@@ -13,4 +13,5 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "pillow>=11.3.0",
     "pytesseract>=0.3.13",
+    "ruff[dev]>=0.12.8",
 ]
