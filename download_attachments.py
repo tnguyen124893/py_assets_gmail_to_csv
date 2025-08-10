@@ -45,6 +45,8 @@ class GmailClient:
 
     def get_messages(self, query):
         try:
+            if self.service is None:
+                raise Exception("Gmail service initialization failed")
             results = self.service.users().messages().list(userId='me', q=query).execute()
             messages = results.get('messages', [])
             if not messages:
@@ -53,12 +55,23 @@ class GmailClient:
         except HttpError as error:
             print(f'An error occurred: {error}')
             return []
+        except Exception as error:
+            print(f'Service error: {error}')
+            return []
 
     def get_message(self, msg_id):
-        return self.service.users().messages().get(userId='me', id=msg_id).execute()
-
+        if self.service is None:
+            raise Exception("Gmail service initialization failed")
+        try:
+            return self.service.users().messages().get(userId='me', messageId=msg_id).execute()
+        except HttpError as error:
+            print(f'An error occurred: {error}')
+            return None
     def get_attachment(self, msg_id, att_id):
+        if self.service is None:
+            raise Exception("Gmail service initialization failed")
         return self.service.users().messages().attachments().get(userId='me', messageId=msg_id, id=att_id).execute()
+
 
 
 
@@ -75,6 +88,9 @@ def main():
 
     for message in messages:
         msg = gmail_client.get_message(message['id'])
+        if msg is None:
+            print(f"Could not fetch message {message['id']}")
+            continue
         send_date = None
         for header in msg['payload']['headers']:
             if header['name'] == 'Date':
